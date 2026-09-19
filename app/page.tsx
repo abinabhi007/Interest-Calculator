@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import styles from "./calculator.module.scss";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import RangeSlider from "react-bootstrap-range-slider";
 import {
   Chart as ChartJS,
@@ -14,6 +14,7 @@ import {
   ChartOptions,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -23,12 +24,25 @@ ChartJS.register(
   Legend
 );
 
+interface CalculatedData {
+  principalAmount: number;
+  rateOfInterest: number;
+  tenureYear: number;
+  selectedPayout: number;
+  maturityAmount: number;
+  interestEarned: number;
+}
+
 export default function Home() {
   const [principalAmount, setPrincipalAmount] = useState(100000);
   const [rateOfInterest, setRateOfInterest] = useState(7.5);
   const [tenureYear, setTenureYear] = useState(5);
   const [selectedPayout, setSelectedPayout] = useState(4);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+
+  const [showResult, setShowResult] = useState(false);
+  const [calculatedData, setCalculatedData] = useState<CalculatedData | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   const payoutMonths = [
     { id: 1, duration: "Quarterly" },
@@ -42,17 +56,48 @@ export default function Home() {
     return P + (P * r * t) / 100;
   }
 
-  const maturityAmount = Math.round(
-    principalCalculation(principalAmount, rateOfInterest, tenureYear)
-  );
-  const interestEarned = Math.round(maturityAmount - principalAmount);
+  const handleCalculate = () => {
+    const maturity = Math.round(
+      principalCalculation(principalAmount, rateOfInterest, tenureYear)
+    );
+    const interest = Math.round(maturity - principalAmount);
 
-  const displayYearsCount = Math.max(tenureYear || 5, 5);
+    setCalculatedData({
+      principalAmount,
+      rateOfInterest,
+      tenureYear,
+      selectedPayout,
+      maturityAmount: maturity,
+      interestEarned: interest,
+    });
+    setSelectedYear(tenureYear);
+    setShowResult(true);
+
+    setTimeout(() => {
+      if (typeof window !== "undefined" && window.innerWidth < 992 && resultsRef.current) {
+        resultsRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+    }, 100);
+  };
+
+  const isModifiedSinceCalculation =
+    showResult &&
+    calculatedData !== null &&
+    (principalAmount !== calculatedData.principalAmount ||
+      rateOfInterest !== calculatedData.rateOfInterest ||
+      tenureYear !== calculatedData.tenureYear ||
+      selectedPayout !== calculatedData.selectedPayout);
+
+  const activePrincipal = calculatedData ? calculatedData.principalAmount : principalAmount;
+  const activeRate = calculatedData ? calculatedData.rateOfInterest : rateOfInterest;
+  const activeTenure = calculatedData ? calculatedData.tenureYear : tenureYear;
+
+  const displayYearsCount = Math.max(activeTenure || 5, 5);
   const chartLabels = Array.from({ length: displayYearsCount }, (_, i) => `${i + 1}`);
 
   const chartDataValues = chartLabels.map((_, i) => {
     const yr = i + 1;
-    return Math.round((principalAmount * (rateOfInterest || 7.5) * yr) / 100);
+    return Math.round((activePrincipal * (activeRate || 7.5) * yr) / 100);
   });
 
   const chartData = {
@@ -222,48 +267,77 @@ export default function Home() {
 
             <button
               className={`btn ${styles.btnStyle} mt-4`}
-              onClick={() => setSelectedYear(tenureYear)}
+              onClick={handleCalculate}
             >
-              Calculate
+              {showResult
+                ? isModifiedSinceCalculation
+                  ? "Recalculate"
+                  : "Calculate"
+                : "Calculate"}
             </button>
           </div>
 
-          <div className={`col-lg-6 col-12 ${styles.secondColum} mt-4 mt-lg-0`}>
+          <div
+            ref={resultsRef}
+            className={`col-lg-6 col-12 ${styles.secondColum} mt-4 mt-lg-0`}
+          >
             <div className="row">
               <div className={`${styles.amount} col-6`}>
                 <h5>Maturity Amount</h5>
-                <p>₹{maturityAmount.toLocaleString("en-IN")}</p>
+                <p style={{ minHeight: "36px" }}>
+                  {calculatedData ? `₹${calculatedData.maturityAmount.toLocaleString("en-IN")}` : "—"}
+                </p>
               </div>
               <div className={`${styles.amount} col-6`}>
                 <h5>Interest Earned</h5>
-                <p>₹{interestEarned.toLocaleString("en-IN")}</p>
+                <p style={{ minHeight: "36px" }}>
+                  {calculatedData ? `₹${calculatedData.interestEarned.toLocaleString("en-IN")}` : "—"}
+                </p>
               </div>
             </div>
 
             <div className={styles.chartCard}>
-              <div className={styles.chartLegend}>
-                <div
-                  className={styles.legendItem}
-                  onClick={() =>
-                    setSelectedYear((prev) => (prev ? null : tenureYear))
-                  }
-                  title="Click to toggle selected year highlight"
-                >
-                  <span className={styles.legendDotSelected}></span>
-                  <span>Selected Year</span>
+              {calculatedData && (
+                <div className={styles.chartLegend}>
+                  <div
+                    className={styles.legendItem}
+                    onClick={() =>
+                      setSelectedYear((prev) =>
+                        prev ? null : calculatedData.tenureYear
+                      )
+                    }
+                    title="Click to toggle selected year highlight"
+                  >
+                    <span className={styles.legendDotSelected}></span>
+                    <span>Selected Year</span>
+                  </div>
+                  <div
+                    className={styles.legendItem}
+                    onClick={() => setSelectedYear(null)}
+                    title="Click to view all years"
+                  >
+                    <span className={styles.legendDotOther}></span>
+                    <span>Other Years</span>
+                  </div>
                 </div>
-                <div
-                  className={styles.legendItem}
-                  onClick={() => setSelectedYear(null)}
-                  title="Click to view all years"
-                >
-                  <span className={styles.legendDotOther}></span>
-                  <span>Other Years</span>
-                </div>
-              </div>
+              )}
 
               <div className={styles.chartContainer}>
-                <Bar data={chartData} options={chartOptions} />
+                {calculatedData ? (
+                  <Bar data={chartData} options={chartOptions} />
+                ) : (
+                  <div
+                    style={{
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#8a7565",
+                    }}
+                  >
+                  </div>
+                )}
               </div>
             </div>
 
@@ -271,7 +345,6 @@ export default function Home() {
               <div className={`${styles.actionCard} ${styles.brownCard}`}>
                 <div className={styles.topRow}>
                   <span className={styles.badgePill}>Personalised</span>
-                  
                 </div>
                 <div className={styles.cardTitle}>
                   Check Suitable<br />Products For Your<br />Investment
@@ -284,7 +357,6 @@ export default function Home() {
               <div className={`${styles.actionCard} ${styles.charcoalCard}`}>
                 <div className={styles.topRow}>
                   <span></span>
-                  
                 </div>
                 <div className={styles.cardTitle}>
                   Need Help Finding<br />Right Product?
@@ -300,5 +372,3 @@ export default function Home() {
     </>
   );
 }
-
-

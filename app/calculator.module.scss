@@ -22,12 +22,15 @@
             color: #3b2d25 !important;
             font-weight: 600;
             padding: 10px 24px;
-            border-radius: 8px;
             border: none;
             margin-top: 15px;
             transition: all 0.2s ease;
+            cursor: pointer;
 
 
+            &:active {
+                transform: translateY(0);
+            }
         }
     }
 
@@ -37,6 +40,18 @@
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+        animation: fadeInResult 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+}
+
+@keyframes fadeInResult {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 
@@ -209,10 +224,6 @@
         margin-left: auto;
         transition: background-color 0.2s ease, transform 0.2s ease;
 
-        &:hover {
-            background-color: rgba(255, 255, 255, 0.3);
-            transform: scale(1.05);
-        }
     }
 
     .cardTitle {
